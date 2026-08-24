@@ -1,0 +1,21 @@
+import type {Config,Context} from '@netlify/functions';
+import {createClient} from '@supabase/supabase-js';
+export default async (req:Request,_context:Context)=>{
+  if(req.method!=='POST')return new Response('Method not allowed',{status:405});
+  const url=process.env.VITE_SUPABASE_URL!, service=process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if(!url||!service)return new Response(JSON.stringify({error:'Server member provisioning is not configured'}),{status:500});
+  const token=req.headers.get('authorization')?.replace('Bearer ','');
+  const admin=createClient(url,service);
+  const {data:{user},error:userError}=await admin.auth.getUser(token);
+  if(userError||!user)return new Response(JSON.stringify({error:'Sign in required'}),{status:401});
+  const {data:actor}=await admin.from('profiles').select('role').eq('id',user.id).single();
+  if(!actor||!['administrator','chief_officer'].includes(actor.role))return new Response(JSON.stringify({error:'Only administrators and chiefs can create member accounts'}),{status:403});
+  const body=await req.json(); const {email,password,display_name,role,station_id}=body;
+  if(!email||!password||!display_name||!role)return new Response(JSON.stringify({error:'Name, email, temporary password, and role are required'}),{status:400});
+  const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name}});
+  if(error)return new Response(JSON.stringify({error:error.message}),{status:400});
+  await admin.from('profiles').upsert({id:data.user.id,display_name,role,station_id:station_id||null,active:true});
+  await admin.from('audit_log').insert({actor_id:user.id,action:'create','entity_type':'user',entity_id:data.user.id,detail:{email,role}});
+  return Response.json({id:data.user.id,email});
+};
+export const config:Config={path:'/.netlify/functions/create-member'};
