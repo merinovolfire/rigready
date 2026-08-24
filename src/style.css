@@ -7,3 +7,4 @@
   nav .active{background:#fff0f0;color:#b71c1c;border-left:4px solid #c62828;border-bottom:0}
   main{margin-left:210px;max-width:1290px}
 }
+.edit-list>div{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #e6ecee;gap:10px}.edit-list small{display:block;color:#62737d;margin-top:3px}.edit-list button{padding:9px 14px}.edit-modal{background:#fff;border-radius:14px;padding:22px;width:min(580px,100%);max-height:92vh;overflow:auto}.edit-modal label{display:block;font-size:13px;font-weight:700;margin:9px 0}.edit-modal input,.edit-modal select{width:100%;padding:10px;margin-top:4px;border:1px solid #bdcbd0;border-radius:8px;background:#fff}.edit-modal .check{display:flex;align-items:center;gap:8px}.edit-modal .check input{width:auto;margin:0}.edit-modal .secondary{margin-right:8px}@media(max-width:680px){.edit-list>div{align-items:flex-start}.edit-list button{padding:8px 12px}}
