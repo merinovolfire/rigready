@@ -126,12 +126,16 @@ cross join (values
   (6, 'Fuel level', 'Walk-around')
 ) as x(ord, question, section);
 
--- 5) Remove fictional demo apparatus E-101 (and anything hanging off it)
+-- 5) Remove fictional demo apparatus E-101 (and anything hanging off it).
+-- Order matters: notification_log → repair_records → deficiencies →
+-- inspection responses → inspections → equipment inspections → equipment → apparatus.
 do $$
 declare
   demo_ids uuid[];
+  equip_ids uuid[];
   def_ids uuid[];
   insp_ids uuid[];
+  eq_insp_ids uuid[];
 begin
   select array_agg(id) into demo_ids
   from public.apparatus
@@ -143,13 +147,28 @@ begin
     return;
   end if;
 
-  select array_agg(id) into def_ids
-  from public.deficiencies where apparatus_id = any(demo_ids);
+  select array_agg(id) into equip_ids
+  from public.equipment
+  where apparatus_id = any(demo_ids);
 
   select array_agg(id) into insp_ids
-  from public.inspections where apparatus_id = any(demo_ids);
+  from public.inspections
+  where apparatus_id = any(demo_ids);
 
-  -- notification_log references deficiencies (FK) — must clear first
+  if equip_ids is not null then
+    select array_agg(id) into eq_insp_ids
+    from public.equipment_inspections
+    where equipment_id = any(equip_ids);
+  end if;
+
+  -- All deficiencies tied to the demo apparatus OR its equipment OR its inspections
+  select array_agg(id) into def_ids
+  from public.deficiencies
+  where apparatus_id = any(demo_ids)
+     or (equip_ids is not null and equipment_id = any(equip_ids))
+     or (insp_ids is not null and inspection_id = any(insp_ids))
+     or (eq_insp_ids is not null and equipment_inspection_id = any(eq_insp_ids));
+
   if def_ids is not null then
     delete from public.notification_log where deficiency_id = any(def_ids);
     delete from public.repair_records where deficiency_id = any(def_ids);
@@ -161,8 +180,14 @@ begin
     delete from public.inspections where id = any(insp_ids);
   end if;
 
-  -- Drop demo-only equipment tied to the fake unit
-  delete from public.equipment where apparatus_id = any(demo_ids);
+  if eq_insp_ids is not null then
+    delete from public.equipment_inspection_responses where inspection_id = any(eq_insp_ids);
+    delete from public.equipment_inspections where id = any(eq_insp_ids);
+  end if;
+
+  if equip_ids is not null then
+    delete from public.equipment where id = any(equip_ids);
+  end if;
 
   delete from public.apparatus where id = any(demo_ids);
 end $$;
