@@ -4,6 +4,10 @@
 -- Run in Supabase → SQL Editor → New query → Run.
 
 -- Preferred keeper name for each type
+drop table if exists _preferred;
+drop table if exists _alias;
+drop table if exists _keepers;
+
 create temporary table _preferred (
   type_name text primary key,
   checklist_name text not null
@@ -49,13 +53,14 @@ set apparatus_type_id = at.id
 from public.apparatus_types at
 join _preferred p on p.type_name = at.name
 where it.apparatus_type_id is null
-  and (it.name = p.checklist_name or it.name in (select old_name from _alias a where a.type_name = at.name));
+  and it.name = p.checklist_name;
 
 update public.inspection_templates it
 set apparatus_type_id = at.id
 from public.apparatus_types at
-join _alias a on a.type_name = at.name and a.old_name = it.name
-where it.apparatus_type_id is null;
+join _alias a on a.type_name = at.name
+where it.apparatus_type_id is null
+  and it.name = a.old_name;
 
 -- Ensure each type has at least one template (create preferred if missing entirely)
 insert into public.inspection_templates(name, frequency, apparatus_type_id, active)
